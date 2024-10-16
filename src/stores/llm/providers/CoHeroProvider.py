@@ -18,6 +18,7 @@ class CoHeroProvider(LLMInterface):
         self.embedding_size = None
 
         self.client = cohere.Client(api_key=api_key)
+        self.enums = COHEROEnum
 
         self.logger = logging.getLogger(__name__)
 
@@ -31,9 +32,8 @@ class CoHeroProvider(LLMInterface):
     
     def process_text(self, text:str):
         return text[:self.default_input_max_length].strip()
-    
-    def generate_text(self, prompt:str,chat_history:list=[], max_length:int=None, temperature:float=None):
         
+    def generate_text(self, prompt:str, chat_history:list=[], max_length:int=None, temperature:float=None):
         if not self.client:
             self.logger.error("CoHere client is not initialized")
             return None
@@ -41,20 +41,32 @@ class CoHeroProvider(LLMInterface):
         if not self.generation_model_id:
             self.logger.error("Generation model is not set")
             return None
-        
+
+        # Format chat history
+        formatted_history = []
+        for entry in chat_history:
+            if isinstance(entry, dict) and 'message' in entry:
+                formatted_history.append(entry)
+            elif isinstance(entry, dict) and 'content' in entry:
+                formatted_history.append({"message": entry['content'], "role": entry.get('role', 'USER')})
+            else:
+                self.logger.warning(f"Skipping invalid chat history entry: {entry}")
+
+        print("prompt", prompt)
+        print("formatted_history", formatted_history)
+
         response = self.client.chat(
             model=self.generation_model_id,
-            chat_history=chat_history,
-            message= self.process_text(prompt),
-            temperature= temperature if temperature else self.default_temperature,
-            max_tokens= max_length if max_length else self.default_output_max_tokens
+            chat_history=formatted_history,
+            message=self.process_text(prompt),
+            temperature=temperature if temperature else self.default_temperature,
+            max_tokens=max_length if max_length else self.default_output_max_tokens
         )
 
         if not response or not response.text:
             logging.error("failed to generate text with CoHere")
             return None
         return response.text
-    
     def embed_text(self, text:str, document_type:str):
         if not self.client:
             self.logger.error("CoHere client is not initialized")

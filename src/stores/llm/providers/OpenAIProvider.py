@@ -17,7 +17,10 @@ class OpenAIProvider(LLMInterface):
         self.embedding_model_id = None
         self.embedding_size = None
 
-        self.client = OpenAI(api_key=api_key,base_url=api_url)
+        self.client = OpenAI(api_key=api_key
+                             ,base_url=self.api_url if self.api_url and len(self.api_url) > 0 else None
+                             )
+        self.enums = OPENAIEnum
         self.logger = logging.getLogger(__name__)
 
     def set_generation_model(self, model_id:str):
@@ -40,7 +43,7 @@ class OpenAIProvider(LLMInterface):
             return None
         max_length = max_length if max_length else self.default_output_max_tokens
         temperature = temperature if temperature else self.default_temperature
-        
+
         chat_history.append(self.construct_prompt(prompt, OPENAIEnum.USER.value))
         response = self.client.chat.completions.create(
             model=self.generation_model_id,
@@ -52,7 +55,7 @@ class OpenAIProvider(LLMInterface):
         if not response or not response.choices or len(response.choices) == 0 or not response.choices[0].message:
             self.logger.error("failed to generate text")
             return None
-        return response.choices[0].message["content"]
+        return response.choices[0].message.content
     
     def embed_text(self, text:str, document_type:str=None):
         if not self.client:
